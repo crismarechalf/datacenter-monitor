@@ -1,0 +1,12 @@
+# Monitor de Datacenter (SIY6122) — dependencias (sección 12 de CLAUDE.md)
+fastapi
+uvicorn[standard]
+sqlalchemy
+psycopg2-binary
+pydantic
+passlib[bcrypt]
+# passlib 1.7.4 no es compatible con bcrypt >= 4.1 (falla al detectar el backend).
+bcrypt==4.0.1
+python-jose[cryptography]
+python-dotenv
+aiosmtplib

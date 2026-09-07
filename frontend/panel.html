@@ -1,0 +1,328 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor de Datacenter — Simulador de sensores</title>
+<style>
+  :root{
+    --fondo:#0b1220; --panel:#111a2e; --panel-2:#16223c; --borde:#22314f;
+    --texto:#e6edf7; --tenue:#8fa3c4;
+    --normal:#22c55e; --advertencia:#f5a623; --critico:#ef4444; --acento:#38bdf8;
+    --sombra:0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--texto);
+       font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif}
+  header{display:flex;align-items:center;gap:16px;padding:14px 22px;
+         background:var(--panel);border-bottom:1px solid var(--borde)}
+  header h1{font-size:18px;margin:0;letter-spacing:.5px}
+  header .sub{color:var(--tenue);font-size:12px}
+  .espacio{flex:1}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--borde);
+         background:var(--panel-2);color:var(--texto);padding:8px 14px}
+  button:hover{border-color:var(--acento)}
+  main{padding:22px;max-width:1080px;margin:0 auto;display:grid;
+       grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:860px){main{grid-template-columns:1fr}}
+  .tarjeta{background:var(--panel);border:1px solid var(--borde);border-radius:14px;
+           padding:18px;box-shadow:var(--sombra)}
+  .tarjeta h2{margin:0 0 14px;font-size:13px;color:var(--tenue);
+              text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  .ancho{grid-column:1/-1}
+  .fila{margin-bottom:20px}
+  .fila .cab{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px}
+  .fila .nom{font-size:14px}
+  .fila .num{font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+  input[type=range]{width:100%;accent-color:var(--acento)}
+  .escala{display:flex;justify-content:space-between;color:var(--tenue);font-size:11px;margin-top:2px}
+  .toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;
+          padding:12px 0;border-bottom:1px solid var(--borde)}
+  .toggle:last-child{border-bottom:none}
+  .toggle .txt{font-size:14px}
+  .toggle .pista{position:relative;width:52px;height:28px;background:var(--panel-2);
+                 border:1px solid var(--borde);border-radius:999px;cursor:pointer;flex:none;
+                 transition:background .2s}
+  .toggle .pista::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;
+                        border-radius:50%;background:var(--tenue);transition:transform .2s,background .2s}
+  .toggle input{display:none}
+  .toggle input:checked + .pista{background:rgba(239,68,68,.25);border-color:var(--critico)}
+  .toggle input:checked + .pista::after{transform:translateX(24px);background:var(--critico)}
+  .toggle.info input:checked + .pista{background:rgba(56,189,248,.25);border-color:var(--acento)}
+  .toggle.info input:checked + .pista::after{background:var(--acento)}
+  .escenarios{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .escenarios button{padding:14px 12px;text-align:left;line-height:1.35}
+  .escenarios b{display:block;font-size:14px;margin-bottom:2px}
+  .escenarios small{color:var(--tenue);font-size:11px}
+  .esc-critico:hover{border-color:var(--critico)}
+  .esc-alerta:hover{border-color:var(--advertencia)}
+  .esc-normal:hover{border-color:var(--normal)}
+  .barra{display:flex;align-items:center;gap:12px;margin-top:4px}
+  .estado-resp{font-size:22px;font-weight:700;letter-spacing:1px}
+  .estado-resp.NORMAL{color:var(--normal)}
+  .estado-resp.ADVERTENCIA{color:var(--advertencia)}
+  .estado-resp.CRITICO{color:var(--critico)}
+  .lista{list-style:none;margin:0;padding:0;max-height:230px;overflow-y:auto;font-size:12.5px}
+  .lista li{padding:8px 0;border-bottom:1px solid var(--borde);display:flex;gap:10px}
+  .lista li:last-child{border-bottom:none}
+  .hora{color:var(--tenue);font-variant-numeric:tabular-nums;flex:none}
+  .vacio{color:var(--tenue);padding:12px 0}
+  .velo{position:fixed;inset:0;background:rgba(5,10,20,.94);display:flex;
+        align-items:center;justify-content:center;z-index:50}
+  .velo.oculto{display:none}
+  .login{background:var(--panel);border:1px solid var(--borde);border-radius:16px;
+         padding:28px;width:min(360px,90vw);box-shadow:var(--sombra)}
+  .login h2{margin:0 0 4px;font-size:18px}
+  .login p{margin:0 0 18px;color:var(--tenue);font-size:13px}
+  .login label{display:block;font-size:12px;color:var(--tenue);margin:12px 0 5px}
+  .login input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--borde);
+               background:var(--fondo);color:var(--texto);font:inherit}
+  .login button{width:100%;margin-top:18px;background:var(--acento);color:#04121f;
+                border-color:var(--acento);font-weight:700}
+  .error{color:var(--critico);font-size:12px;min-height:16px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="velo" id="velo">
+  <form class="login" id="form-login">
+    <h2>Simulador de sensores</h2>
+    <p>El ingreso de lecturas exige autenticación.</p>
+    <label for="usuario">Usuario</label>
+    <input id="usuario" name="usuario" autocomplete="username" required>
+    <label for="clave">Contraseña</label>
+    <input id="clave" name="clave" type="password" autocomplete="current-password" required>
+    <button type="submit">Entrar</button>
+    <div class="error" id="error-login"></div>
+  </form>
+</div>
+
+<header>
+  <div>
+    <h1>SIMULADOR DE SENSORES</h1>
+    <div class="sub">Genera las lecturas que alimentan el monitor</div>
+  </div>
+  <div class="espacio"></div>
+  <a href="/" target="_blank"><button type="button">Dashboard</button></a>
+  <button type="button" id="btn-salir">Salir</button>
+</header>
+
+<main>
+  <section class="tarjeta ancho">
+    <h2>Escenarios de demostración</h2>
+    <div class="escenarios">
+      <button type="button" class="esc-alerta"  data-escenario="calor">
+        <b>Ola de calor</b><small>Temperatura 35 °C, humedad baja</small></button>
+      <button type="button" class="esc-alerta"  data-escenario="ups">
+        <b>UPS sobrecargada</b><small>Carga eléctrica al 95 %</small></button>
+      <button type="button" class="esc-critico" data-escenario="humo">
+        <b>Humo detectado</b><small>Incendio en la sala</small></button>
+      <button type="button" class="esc-critico" data-escenario="intrusion">
+        <b>Intrusión</b><small>Puerta abierta sin mantención</small></button>
+      <button type="button" class="esc-normal"  data-escenario="normal">
+        <b>Todo normal</b><small>Condiciones dentro de rango</small></button>
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>Variables continuas</h2>
+
+    <div class="fila">
+      <div class="cab"><span class="nom">Temperatura del aire</span>
+        <span class="num"><span id="v-temperatura">22.0</span> °C</span></div>
+      <input type="range" id="temperatura" min="0" max="50" step="0.5" value="22">
+      <div class="escala"><span>0</span><span>normal 18–27</span><span>50</span></div>
+    </div>
+
+    <div class="fila">
+      <div class="cab"><span class="nom">Humedad relativa</span>
+        <span class="num"><span id="v-humedad">50</span> %</span></div>
+      <input type="range" id="humedad" min="0" max="100" step="1" value="50">
+      <div class="escala"><span>0</span><span>normal 40–60</span><span>100</span></div>
+    </div>
+
+    <div class="fila">
+      <div class="cab"><span class="nom">Carga UPS / PDU</span>
+        <span class="num"><span id="v-carga_ups">45</span> %</span></div>
+      <input type="range" id="carga_ups" min="0" max="100" step="1" value="45">
+      <div class="escala"><span>0</span><span>normal &lt; 70</span><span>100</span></div>
+    </div>
+  </section>
+
+  <section class="tarjeta">
+    <h2>Variables de evento</h2>
+
+    <label class="toggle">
+      <span class="txt">Humo / incendio<br><small style="color:var(--tenue)">Crítico siempre</small></span>
+      <input type="checkbox" id="humo"><span class="pista"></span>
+    </label>
+
+    <label class="toggle">
+      <span class="txt">Puerta abierta<br><small style="color:var(--tenue)">Sin mantención = intrusión</small></span>
+      <input type="checkbox" id="puerta_abierta"><span class="pista"></span>
+    </label>
+
+    <label class="toggle info">
+      <span class="txt">Modo mantención<br><small style="color:var(--tenue)">Autoriza la puerta abierta</small></span>
+      <input type="checkbox" id="mantencion"><span class="pista"></span>
+    </label>
+
+    <div class="barra" style="margin-top:18px">
+      <button type="button" id="btn-enviar">Enviar lectura</button>
+      <label class="txt" style="font-size:12px;color:var(--tenue);display:flex;gap:6px;align-items:center">
+        <input type="checkbox" id="auto" style="display:inline;accent-color:var(--acento)"> envío automático (5 s)
+      </label>
+    </div>
+  </section>
+
+  <section class="tarjeta ancho">
+    <h2>Respuesta del monitor</h2>
+    <div class="barra">
+      <span class="estado-resp" id="estado-resp">—</span>
+      <span class="hora" id="detalle-resp">Aún no se ha enviado ninguna lectura.</span>
+    </div>
+    <ul class="lista" id="registro" style="margin-top:14px"><li class="vacio">Sin envíos todavía.</li></ul>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const CONTINUAS = ["temperatura","humedad","carga_ups"];
+const EVENTOS = ["humo","puerta_abierta","mantencion"];
+
+const ESCENARIOS = {
+  calor:     { temperatura:35, humedad:25, carga_ups:60, humo:false, puerta_abierta:false, mantencion:false },
+  ups:       { temperatura:26, humedad:50, carga_ups:95, humo:false, puerta_abierta:false, mantencion:false },
+  humo:      { temperatura:30, humedad:45, carga_ups:70, humo:true,  puerta_abierta:false, mantencion:false },
+  intrusion: { temperatura:22, humedad:50, carga_ups:45, humo:false, puerta_abierta:true,  mantencion:false },
+  normal:    { temperatura:22, humedad:50, carga_ups:45, humo:false, puerta_abierta:false, mantencion:false }
+};
+
+let token = localStorage.getItem("token_monitor") || "";
+let temporizador = null;
+let pendiente = null;
+
+function leerFormulario(){
+  const datos = {};
+  CONTINUAS.forEach(c => datos[c] = parseFloat(document.getElementById(c).value));
+  EVENTOS.forEach(c => datos[c] = document.getElementById(c).checked);
+  return datos;
+}
+
+function pintarFormulario(datos){
+  CONTINUAS.forEach(c => {
+    document.getElementById(c).value = datos[c];
+    document.getElementById("v-" + c).textContent = datos[c];
+  });
+  EVENTOS.forEach(c => document.getElementById(c).checked = datos[c]);
+}
+
+function registrar(texto){
+  const ul = document.getElementById("registro");
+  const vacio = ul.querySelector(".vacio");
+  if(vacio) vacio.remove();
+  const li = document.createElement("li");
+  li.innerHTML = `<span class="hora">${new Date().toLocaleTimeString("es-CL")}</span><span>${texto}</span>`;
+  ul.prepend(li);
+  while(ul.children.length > 40) ul.lastElementChild.remove();
+}
+
+async function enviarLectura(){
+  if(!token) return;
+  const cuerpo = leerFormulario();
+  let resp;
+  try{
+    resp = await fetch("/lecturas", {
+      method:"POST",
+      headers:{ "Content-Type":"application/json", "Authorization":"Bearer " + token },
+      body: JSON.stringify(cuerpo)
+    });
+  }catch(e){
+    registrar("Error de red: no se pudo enviar la lectura.");
+    return;
+  }
+
+  if(resp.status === 401){ cerrarSesion(); return; }
+  if(!resp.ok){ registrar("El servidor rechazó la lectura (HTTP " + resp.status + ")."); return; }
+
+  const datos = await resp.json();
+  const el = document.getElementById("estado-resp");
+  el.textContent = datos.estado_general;
+  el.className = "estado-resp " + datos.estado_general;
+  document.getElementById("detalle-resp").textContent =
+    `${datos.alertas.length} alerta(s) · ${datos.incidentes_criticos} incidente(s) crítico(s) acumulado(s)`;
+
+  const resumen = `T ${cuerpo.temperatura}°C · H ${cuerpo.humedad}% · UPS ${cuerpo.carga_ups}%` +
+    (cuerpo.humo ? " · HUMO" : "") +
+    (cuerpo.puerta_abierta ? (cuerpo.mantencion ? " · puerta (mantención)" : " · PUERTA SIN MANTENCIÓN") : "");
+  registrar(`${resumen} → <b>${datos.estado_general}</b>`);
+}
+
+/* Agrupa el arrastre del slider en un solo POST. */
+function enviarConRetardo(){
+  clearTimeout(pendiente);
+  pendiente = setTimeout(enviarLectura, 250);
+}
+
+CONTINUAS.forEach(c => {
+  document.getElementById(c).addEventListener("input", (ev) => {
+    document.getElementById("v-" + c).textContent = ev.target.value;
+    enviarConRetardo();
+  });
+});
+
+EVENTOS.forEach(c => document.getElementById(c).addEventListener("change", enviarLectura));
+
+document.querySelectorAll("button[data-escenario]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    pintarFormulario(ESCENARIOS[btn.dataset.escenario]);
+    enviarLectura();
+  });
+});
+
+document.getElementById("btn-enviar").addEventListener("click", enviarLectura);
+
+document.getElementById("auto").addEventListener("change", (ev) => {
+  clearInterval(temporizador);
+  if(ev.target.checked){
+    temporizador = setInterval(enviarLectura, 5000);
+    registrar("Envío automático activado (cada 5 s).");
+  }else{
+    registrar("Envío automático detenido.");
+  }
+});
+
+/* ---------- Sesión ---------- */
+function cerrarSesion(){
+  token = "";
+  localStorage.removeItem("token_monitor");
+  clearInterval(temporizador);
+  document.getElementById("auto").checked = false;
+  document.getElementById("velo").classList.remove("oculto");
+}
+
+document.getElementById("form-login").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const err = document.getElementById("error-login");
+  err.textContent = "";
+  const resp = await fetch("/auth/login", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      username: document.getElementById("usuario").value,
+      password: document.getElementById("clave").value
+    })
+  });
+  if(!resp.ok){ err.textContent = "Usuario o contraseña incorrectos."; return; }
+  token = (await resp.json()).access_token;
+  localStorage.setItem("token_monitor", token);
+  document.getElementById("velo").classList.add("oculto");
+});
+
+document.getElementById("btn-salir").addEventListener("click", cerrarSesion);
+
+if(token) document.getElementById("velo").classList.add("oculto");
+</script>
+</body>
+</html>

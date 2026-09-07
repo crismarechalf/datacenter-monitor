@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Monitor de Datacenter — Dashboard</title>
+<style>
+  :root{
+    --fondo:#0b1220; --panel:#111a2e; --panel-2:#16223c; --borde:#22314f;
+    --texto:#e6edf7; --tenue:#8fa3c4;
+    --normal:#22c55e; --advertencia:#f5a623; --critico:#ef4444; --acento:#38bdf8;
+    --sombra:0 8px 24px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--fondo);color:var(--texto);
+       font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;}
+  header{display:flex;align-items:center;gap:16px;padding:14px 22px;
+         background:var(--panel);border-bottom:1px solid var(--borde)}
+  header h1{font-size:18px;margin:0;letter-spacing:.5px}
+  header .sub{color:var(--tenue);font-size:12px}
+  .espacio{flex:1}
+  .conexion{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--tenue)}
+  .punto{width:10px;height:10px;border-radius:50%;background:var(--critico);
+         box-shadow:0 0 8px currentColor}
+  .punto.ok{background:var(--normal)}
+  button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--borde);
+         background:var(--panel-2);color:var(--texto);padding:8px 14px}
+  button:hover{border-color:var(--acento)}
+  main{padding:22px;max-width:1280px;margin:0 auto}
+  .semaforo{display:flex;align-items:center;gap:18px;padding:18px 22px;border-radius:14px;
+            border:1px solid var(--borde);background:var(--panel);margin-bottom:20px;
+            box-shadow:var(--sombra)}
+  .semaforo .luz{width:54px;height:54px;border-radius:50%;background:var(--tenue);
+                 box-shadow:0 0 24px currentColor;flex:none}
+  .semaforo .estado{font-size:26px;font-weight:700;letter-spacing:1px}
+  .semaforo .detalle{color:var(--tenue);font-size:13px;margin-top:2px}
+  .incidentes{text-align:center;padding:0 8px}
+  .incidentes .num{font-size:34px;font-weight:700;color:var(--critico)}
+  .incidentes .lbl{font-size:11px;color:var(--tenue);text-transform:uppercase;letter-spacing:1px}
+  .grilla{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px;margin-bottom:20px}
+  .tarjeta{background:var(--panel);border:1px solid var(--borde);border-radius:14px;
+           padding:16px;box-shadow:var(--sombra)}
+  .tarjeta h2{margin:0 0 6px;font-size:13px;color:var(--tenue);
+              text-transform:uppercase;letter-spacing:1px;font-weight:600}
+  .reloj{display:flex;flex-direction:column;align-items:center}
+  .reloj svg{width:100%;max-width:190px;height:118px}
+  .reloj .valor{font-size:28px;font-weight:700;margin-top:-38px}
+  .reloj .unidad{font-size:14px;color:var(--tenue)}
+  .chip{display:inline-block;margin-top:10px;padding:3px 12px;border-radius:999px;
+        font-size:11px;font-weight:700;letter-spacing:1px}
+  .chip.NORMAL{background:rgba(34,197,94,.15);color:var(--normal)}
+  .chip.ADVERTENCIA{background:rgba(245,166,35,.15);color:var(--advertencia)}
+  .chip.CRITICO{background:rgba(239,68,68,.15);color:var(--critico)}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-bottom:20px}
+  .tile{background:var(--panel);border:1px solid var(--borde);border-left:4px solid var(--tenue);
+        border-radius:12px;padding:14px 16px}
+  .tile .rot{font-size:11px;color:var(--tenue);text-transform:uppercase;letter-spacing:1px}
+  .tile .val{font-size:19px;font-weight:700;margin-top:4px}
+  .tile.NORMAL{border-left-color:var(--normal)}
+  .tile.ADVERTENCIA{border-left-color:var(--advertencia)}
+  .tile.CRITICO{border-left-color:var(--critico)}
+  .columnas{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  @media (max-width:860px){.columnas{grid-template-columns:1fr}}
+  .lista{list-style:none;margin:0;padding:0;max-height:320px;overflow-y:auto}
+  .lista li{display:flex;gap:10px;align-items:flex-start;padding:10px 0;
+            border-bottom:1px solid var(--borde);font-size:13px}
+  .lista li:last-child{border-bottom:none}
+  .sev{flex:none;font-size:10px;font-weight:700;padding:2px 8px;border-radius:999px;margin-top:1px}
+  .sev.ADVERTENCIA{background:rgba(245,166,35,.15);color:var(--advertencia)}
+  .sev.CRITICO{background:rgba(239,68,68,.15);color:var(--critico)}
+  .sev.NORMAL{background:rgba(56,189,248,.15);color:var(--acento)}
+  .hora{color:var(--tenue);font-size:11px;font-variant-numeric:tabular-nums}
+  .vacio{color:var(--tenue);font-size:13px;padding:14px 0}
+  .btn-mini{padding:3px 10px;font-size:11px;margin-left:auto}
+  /* Login */
+  .velo{position:fixed;inset:0;background:rgba(5,10,20,.94);display:flex;
+        align-items:center;justify-content:center;z-index:50}
+  .velo.oculto{display:none}
+  .login{background:var(--panel);border:1px solid var(--borde);border-radius:16px;
+         padding:28px;width:min(360px,90vw);box-shadow:var(--sombra)}
+  .login h2{margin:0 0 4px;font-size:18px}
+  .login p{margin:0 0 18px;color:var(--tenue);font-size:13px}
+  .login label{display:block;font-size:12px;color:var(--tenue);margin:12px 0 5px}
+  .login input{width:100%;padding:10px;border-radius:8px;border:1px solid var(--borde);
+               background:var(--fondo);color:var(--texto);font:inherit}
+  .login button{width:100%;margin-top:18px;background:var(--acento);color:#04121f;
+                border-color:var(--acento);font-weight:700}
+  .error{color:var(--critico);font-size:12px;min-height:16px;margin-top:10px}
+</style>
+</head>
+<body>
+
+<div class="velo" id="velo">
+  <form class="login" id="form-login">
+    <h2>Monitor de Datacenter</h2>
+    <p>Acceso restringido al encargado de sala.</p>
+    <label for="usuario">Usuario</label>
+    <input id="usuario" name="usuario" autocomplete="username" required>
+    <label for="clave">Contraseña</label>
+    <input id="clave" name="clave" type="password" autocomplete="current-password" required>
+    <button type="submit">Entrar</button>
+    <div class="error" id="error-login"></div>
+  </form>
+</div>
+
+<header>
+  <div>
+    <h1>MONITOR DE DATACENTER</h1>
+    <div class="sub">Sala de networking — vigilancia en tiempo real</div>
+  </div>
+  <div class="espacio"></div>
+  <div class="conexion"><span class="punto" id="punto"></span><span id="txt-conexion">desconectado</span></div>
+  <a href="/panel" target="_blank"><button type="button">Simulador</button></a>
+  <button type="button" id="btn-salir">Salir</button>
+</header>
+
+<main>
+  <section class="semaforo">
+    <div class="luz" id="luz"></div>
+    <div>
+      <div class="estado" id="estado-general">SIN DATOS</div>
+      <div class="detalle" id="detalle-estado">Esperando la primera lectura del simulador…</div>
+    </div>
+    <div class="espacio"></div>
+    <div class="incidentes">
+      <div class="num" id="incidentes">0</div>
+      <div class="lbl">Incidentes críticos</div>
+    </div>
+  </section>
+
+  <section class="grilla" id="relojes"></section>
+
+  <section class="tiles">
+    <div class="tile" id="tile-humo"><div class="rot">Humo / incendio</div><div class="val">—</div></div>
+    <div class="tile" id="tile-puerta"><div class="rot">Puerta</div><div class="val">—</div></div>
+    <div class="tile" id="tile-acceso"><div class="rot">Acceso físico</div><div class="val">—</div></div>
+    <div class="tile" id="tile-mantencion"><div class="rot">Mantención</div><div class="val">—</div></div>
+  </section>
+
+  <section class="columnas">
+    <div class="tarjeta">
+      <h2>Alertas activas</h2>
+      <ul class="lista" id="alertas"><li class="vacio">Sin alertas activas.</li></ul>
+    </div>
+    <div class="tarjeta">
+      <h2>Registro de eventos</h2>
+      <ul class="lista" id="eventos"><li class="vacio">Sin eventos todavía.</li></ul>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+
+const API = "";
+const RELOJES = [
+  { clave:"temperatura", titulo:"Temperatura", unidad:"°C", min:0,  max:50 },
+  { clave:"humedad",     titulo:"Humedad",     unidad:"%",  min:0,  max:100 },
+  { clave:"carga_ups",   titulo:"Carga UPS/PDU", unidad:"%", min:0, max:100 }
+];
+const COLOR = { NORMAL:"var(--normal)", ADVERTENCIA:"var(--advertencia)", CRITICO:"var(--critico)" };
+
+let token = localStorage.getItem("token_monitor") || "";
+let socket = null;
+let reintento = 1000;
+
+/* ---------- Relojes (arco SVG de 270°) ---------- */
+const RADIO = 70, CX = 95, CY = 88, INICIO = 135, BARRIDO = 270;
+const LARGO = 2 * Math.PI * RADIO * (BARRIDO / 360);
+
+function polar(grados, radio){
+  const rad = (grados - 90) * Math.PI / 180;
+  return [CX + radio * Math.cos(rad), CY + radio * Math.sin(rad)];
+}
+function arco(radio){
+  const [x1,y1] = polar(INICIO, radio);
+  const [x2,y2] = polar(INICIO + BARRIDO, radio);
+  return `M ${x1} ${y1} A ${radio} ${radio} 0 1 1 ${x2} ${y2}`;
+}
+
+function crearRelojes(){
+  document.getElementById("relojes").innerHTML = RELOJES.map(r => `
+    <div class="tarjeta reloj">
+      <h2>${r.titulo}</h2>
+      <svg viewBox="0 0 190 118">
+        <path d="${arco(RADIO)}" fill="none" stroke="var(--panel-2)" stroke-width="14" stroke-linecap="round"/>
+        <path id="arco-${r.clave}" d="${arco(RADIO)}" fill="none" stroke="var(--tenue)" stroke-width="14"
+              stroke-linecap="round" stroke-dasharray="${LARGO}" stroke-dashoffset="${LARGO}"
+              style="transition:stroke-dashoffset .4s ease, stroke .3s ease"/>
+      </svg>
+      <div class="valor"><span id="val-${r.clave}">—</span> <span class="unidad">${r.unidad}</span></div>
+      <span class="chip" id="chip-${r.clave}">—</span>
+    </div>`).join("");
+}
+
+function pintarReloj(cfg, valor, estado){
+  const frac = Math.min(1, Math.max(0, (valor - cfg.min) / (cfg.max - cfg.min)));
+  const arcoEl = document.getElementById("arco-" + cfg.clave);
+  arcoEl.style.strokeDashoffset = LARGO * (1 - frac);
+  arcoEl.style.stroke = COLOR[estado] || "var(--tenue)";
+  document.getElementById("val-" + cfg.clave).textContent =
+    Number.isInteger(valor) ? valor : valor.toFixed(1);
+  const chip = document.getElementById("chip-" + cfg.clave);
+  chip.textContent = estado;
+  chip.className = "chip " + estado;
+}
+
+/* ---------- Pintado del estado ---------- */
+function pintarTile(id, rotulo, valor, estado){
+  const el = document.getElementById(id);
+  el.className = "tile " + estado;
+  el.innerHTML = `<div class="rot">${rotulo}</div><div class="val">${valor}</div>`;
+}
+
+function pintarEstado(datos){
+  const l = datos.lectura, e = datos.estados;
+
+  document.getElementById("estado-general").textContent = datos.estado_general;
+  document.getElementById("luz").style.background = COLOR[datos.estado_general];
+  document.getElementById("luz").style.color = COLOR[datos.estado_general];
+  document.getElementById("incidentes").textContent = datos.incidentes_criticos;
+  document.getElementById("detalle-estado").textContent =
+    "Última lectura: " + new Date(l.timestamp).toLocaleString("es-CL");
+
+  RELOJES.forEach(cfg => pintarReloj(cfg, l[cfg.clave], e[cfg.clave]));
+
+  pintarTile("tile-humo", "Humo / incendio", l.humo ? "HUMO DETECTADO" : "Sin humo", e.humo);
+  pintarTile("tile-puerta", "Puerta", l.puerta_abierta ? "Abierta" : "Cerrada",
+             l.puerta_abierta && !l.mantencion ? "CRITICO" : "NORMAL");
+  pintarTile("tile-acceso", "Acceso físico",
+             !l.puerta_abierta ? "Sin novedad" : (datos.acceso_autorizado ? "Autorizado" : "INTRUSIÓN"),
+             e.acceso);
+  pintarTile("tile-mantencion", "Mantención", l.mantencion ? "Activa" : "Inactiva", "NORMAL");
+
+  pintarAlertas(datos.alertas);
+}
+
+function pintarAlertas(alertas){
+  const ul = document.getElementById("alertas");
+  if(!alertas || !alertas.length){
+    ul.innerHTML = '<li class="vacio">Sin alertas activas.</li>';
+    return;
+  }
+  ul.innerHTML = alertas.map(a => `
+    <li>
+      <span class="sev ${a.severidad}">${a.severidad}</span>
+      <span>${a.mensaje}<br><span class="hora">${new Date(a.timestamp).toLocaleTimeString("es-CL")}</span></span>
+      <button class="btn-mini" data-alerta="${a.id}">Reconocer</button>
+    </li>`).join("");
+  ul.querySelectorAll("button[data-alerta]").forEach(b =>
+    b.addEventListener("click", () => reconocer(b.dataset.alerta)));
+}
+
+function registrarEvento(texto, severidad){
+  const ul = document.getElementById("eventos");
+  const vacio = ul.querySelector(".vacio");
+  if(vacio) vacio.remove();
+  const li = document.createElement("li");
+  li.innerHTML = `<span class="sev ${severidad}">${severidad}</span>
+                  <span>${texto}<br><span class="hora">${new Date().toLocaleTimeString("es-CL")}</span></span>`;
+  ul.prepend(li);
+  while(ul.children.length > 60) ul.lastElementChild.remove();
+}
+
+/* ---------- API ---------- */
+async function pedir(ruta, opciones = {}){
+  const resp = await fetch(API + ruta, {
+    ...opciones,
+    headers:{ "Content-Type":"application/json", "Authorization":"Bearer " + token, ...(opciones.headers||{}) }
+  });
+  if(resp.status === 401){ cerrarSesion(); throw new Error("Sesión expirada"); }
+  return resp;
+}
+
+async function reconocer(id){
+  const resp = await pedir(`/alertas/${id}/reconocer`, { method:"POST" });
+  if(resp.ok){
+    registrarEvento(`Alerta #${id} reconocida por el encargado.`, "NORMAL");
+    const activas = await (await pedir("/alertas?solo_activas=true")).json();
+    pintarAlertas(activas);
+  }
+}
+
+async function cargarEstadoInicial(){
+  const resp = await pedir("/lecturas/ultima");
+  if(resp.ok){
+    pintarEstado(await resp.json());
+    registrarEvento("Estado inicial cargado desde el histórico.", "NORMAL");
+  }else{
+    registrarEvento("Todavía no hay lecturas: abre el simulador y envía una.", "NORMAL");
+  }
+}
+
+/* ---------- WebSocket ---------- */
+function conectar(){
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  socket = new WebSocket(`${proto}://${location.host}/ws?token=${encodeURIComponent(token)}`);
+
+  socket.onopen = () => {
+    reintento = 1000;
+    document.getElementById("punto").classList.add("ok");
+    document.getElementById("txt-conexion").textContent = "en vivo";
+    registrarEvento("Canal de tiempo real conectado.", "NORMAL");
+  };
+
+  socket.onmessage = (ev) => {
+    const datos = JSON.parse(ev.data);
+    pintarEstado(datos);
+    if(datos.estado_general !== "NORMAL"){
+      const detalle = datos.alertas.map(a => a.mensaje).join(" | ") || "condición fuera de rango";
+      registrarEvento(detalle, datos.estado_general);
+    }
+  };
+
+  socket.onclose = () => {
+    document.getElementById("punto").classList.remove("ok");
+    document.getElementById("txt-conexion").textContent = "reconectando…";
+    if(token) setTimeout(conectar, reintento = Math.min(reintento * 2, 15000));
+  };
+}
+
+/* ---------- Sesión ---------- */
+function cerrarSesion(){
+  token = "";
+  localStorage.removeItem("token_monitor");
+  if(socket) socket.close();
+  document.getElementById("velo").classList.remove("oculto");
+}
+
+async function iniciar(){
+  document.getElementById("velo").classList.add("oculto");
+  crearRelojes();
+  await cargarEstadoInicial();
+  conectar();
+}
+
+document.getElementById("form-login").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const err = document.getElementById("error-login");
+  err.textContent = "";
+  const resp = await fetch(API + "/auth/login", {
+    method:"POST",
+    headers:{ "Content-Type":"application/json" },
+    body: JSON.stringify({
+      username: document.getElementById("usuario").value,
+      password: document.getElementById("clave").value
+    })
+  });
+  if(!resp.ok){ err.textContent = "Usuario o contraseña incorrectos."; return; }
+  token = (await resp.json()).access_token;
+  localStorage.setItem("token_monitor", token);
+  iniciar();
+});
+
+document.getElementById("btn-salir").addEventListener("click", cerrarSesion);
+
+crearRelojes();
+if(token) iniciar();
+</script>
+</body>
+</html>

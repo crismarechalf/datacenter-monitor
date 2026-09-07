@@ -1,0 +1,35 @@
+# Levanta el sistema completo con: docker compose up --build
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: monitor-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-monitor}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?define POSTGRES_PASSWORD en el .env}
+      POSTGRES_DB: ${POSTGRES_DB:-datacenter}
+    volumes:
+      - datos_postgres:/var/lib/postgresql/data
+    # La app espera a que Postgres este realmente listo, no solo arrancado.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monitor} -d ${POSTGRES_DB:-datacenter}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  app:
+    build: .
+    container_name: monitor-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # Dentro de la red de compose el host de la base es el servicio `db`.
+      DATABASE_URL: postgresql+psycopg2://${POSTGRES_USER:-monitor}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB:-datacenter}
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  datos_postgres:
